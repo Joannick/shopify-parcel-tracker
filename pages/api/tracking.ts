@@ -26,7 +26,7 @@ async function getBrowser() {
     const options: PuppeteerLaunchOptions = {
         args: isLocal ? puppeteer.defaultArgs() : await chromium.args,
         defaultViewport: chromium.defaultViewport,
-        executablePath: isLocal ? undefined : await chromium.executablePath,
+        executablePath: isLocal ? undefined : await chromium.executablePath(),
         headless: true,
     };
 
