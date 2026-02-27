@@ -62,6 +62,6 @@ for (let i = 0; i < Math.min(10, eventElements.length); i++) {
         }
     } catch (e) {
         // Skip this event if parsing fails
-        continue;
+        return;
     }
 }
