@@ -94,8 +94,6 @@ async function scrapeTracking(trackingNumber: string): Promise<TrackingResponse>
             timeout: 30000,
         });
 
-        // Wait for content to load
-        await page.waitForTimeout(2000);
 
         const data = await page.evaluate(() => {
             // Extract status
