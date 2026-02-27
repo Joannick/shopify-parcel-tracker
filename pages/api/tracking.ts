@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import puppeteer, { Browser } from 'puppeteer';
+import puppeteer, { Browser, PuppeteerLaunchOptions } from 'puppeteer-core';
+import chromium from '@sparticuz/chromium';
 
 interface TrackingResponse {
     trackingNumber: string;
@@ -19,16 +20,17 @@ interface TrackingResponse {
 let browser: Browser | null = null;
 
 async function getBrowser() {
-    if (!browser) {
-        browser = await puppeteer.launch({
-            headless: true,
-            args: [
-                '--no-sandbox',
-                '--disable-setuid-sandbox',
-                '--disable-dev-shm-usage',
-            ],
-        });
-    }
+    if (browser) return browser;
+
+    const isLocal = !process.env.VERCEL;
+    const options: PuppeteerLaunchOptions = {
+        args: isLocal ? puppeteer.defaultArgs() : await chromium.args,
+        defaultViewport: chromium.defaultViewport,
+        executablePath: isLocal ? undefined : await chromium.executablePath,
+        headless: true,
+    };
+
+    browser = await puppeteer.launch(options);
     return browser;
 }
 
@@ -94,7 +96,6 @@ async function scrapeTracking(trackingNumber: string): Promise<TrackingResponse>
             timeout: 30000,
         });
 
-
         const data = await page.evaluate(() => {
             // Extract status
             const statusElement =
@@ -108,8 +109,8 @@ async function scrapeTracking(trackingNumber: string): Promise<TrackingResponse>
             let location = '';
             for (const el of locationElements) {
                 const text = el.textContent || '';
-                if (text.includes('location') || text.includes('Location')) {
-                    location = text;
+                if (text.toLowerCase().includes('location') || text.toLowerCase().includes('localisation')) {
+                    location = text.substring(0, 100);
                     break;
                 }
             }
@@ -118,29 +119,29 @@ async function scrapeTracking(trackingNumber: string): Promise<TrackingResponse>
             const carrierImg = document.querySelector('img[alt]');
             const carrier = carrierImg?.getAttribute('alt') || '';
 
-            // Extract EDD (Estimated Delivery Date)
+            // Extract EDD
             const eddElements = document.querySelectorAll('*');
             let edd = '';
             for (const el of eddElements) {
                 const text = el.textContent || '';
                 if (
-                    text.includes('Livraison') ||
-                    text.includes('Delivery') ||
-                    text.includes('Arrive')
+                    text.toLowerCase().includes('livraison') ||
+                    text.toLowerCase().includes('delivery') ||
+                    text.toLowerCase().includes('arrive')
                 ) {
                     edd = text.substring(0, 100);
                     break;
                 }
             }
 
-            // Extract events/timeline
+            // Extract events
             const events: Array<{ date: string; description: string; location: string }> = [];
             const eventElements = document.querySelectorAll(
                 'ul > li, table tbody tr, [class*="event"], ol > li'
             );
 
             eventElements.forEach((el, idx) => {
-                if (idx >= 10) return; // Max 10 events
+                if (idx >= 10) return;
 
                 const eventText = el.textContent?.trim() || '';
                 if (eventText.length > 0) {
